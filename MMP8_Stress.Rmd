@@ -1,0 +1,898 @@
+---
+title: "MMP_8"
+author: "Tobias Spiller & Jasmin Ewert"
+date: "2024-08-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Libraries, message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+# Load necessary libraries
+library(tidyverse)
+library(ggplot2)
+library(readr)
+```
+
+
+```{r Import & Organization, message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+# Read the CSV file
+Stress_Masterfile <- read_delim("Stress_Masterfile.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+View(Stress_Masterfile)
+
+# Rename after loading the data
+Stress_Masterfile_original <- Stress_Masterfile
+
+# Remove rows where all values are NA
+Stress_Masterfile <- Stress_Masterfile %>%
+  filter(rowSums(is.na(.)) != ncol(.))
+
+# Ensure that 'Neutrophil collagenase' and all relevant questionnaire variables are numeric
+Stress_Masterfile <- Stress_Masterfile %>%
+  mutate(
+    `Neutrophil collagenase` = as.numeric(`Neutrophil collagenase`),
+    GHQ_total = as.numeric(GHQ_total),
+    PSS_Global_total = as.numeric(PSS_Global_total),
+    STADI_Trait_total = as.numeric(STADI_Trait_total),
+    WHO_total = as.numeric(WHO_total),
+    GHQ_Somatic_symptoms = as.numeric(GHQ_Somatic_symptoms),
+    GHQ_Anxiety_insomnia = as.numeric(GHQ_Anxiety_insomnia),
+    GHQ_Severe_depression = as.numeric(GHQ_Severe_depression),
+    PSS_Helplessness = as.numeric(PSS_Helplessness),
+    PSS_Self_efficacy = as.numeric(PSS_Self_efficacy),
+    STADI_Trait_agitation = as.numeric(STADI_Trait_agitation),
+    STADI_Trait_euthymia = as.numeric(STADI_Trait_euthymia),
+    STADI_Trait_dysthymia = as.numeric(STADI_Trait_dysthymia),
+    LEC_Exposure = as.numeric(LEC_Exposure),
+    MIMIS_Exposure = as.numeric(MIMIS_Exposure)
+  )
+  
+# Define the variables to analyze
+variables_to_analyze <- c(
+  "GHQ_total", "PSS_Global_total", "STADI_Trait_total", "WHO_total", 
+  "GHQ_Somatic_symptoms", "GHQ_Anxiety_insomnia", "GHQ_Severe_depression", 
+  "PSS_Helplessness", "PSS_Self_efficacy", "STADI_Trait_agitation", 
+  "STADI_Trait_euthymia", "STADI_Trait_dysthymia", "LEC_Exposure", "MIMIS_Exposure"
+)
+```
+
+```{r Pearson Correlation T0 & T1 including Outliers, message=FALSE, warning=FALSE, include=FALSE, results='show'}
+
+####Pearson Correlation 
+
+# Filter data for T0 and T1 sessions separately
+Stress_Masterfile_T0 <- Stress_Masterfile %>% filter(session == "T0")
+Stress_Masterfile_T1 <- Stress_Masterfile %>% filter(session == "T1")
+
+####Pearson Correlation at T0 and T1 with Outliers
+
+# Prepare to store correlation results for T0 and T1 with outliers
+correlation_results_T0 <- data.frame(
+  Variable = character(),
+  Correlation = numeric(),
+  P_value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+correlation_results_T1 <- data.frame(
+  Variable = character(),
+  Correlation = numeric(),
+  P_value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Perform Pearson correlation for T0 with outliers
+analyte_name <- "Neutrophil collagenase"
+for (variable in variables_to_analyze) {
+  
+  # Perform Pearson correlation for T0 with outliers
+  cor_test_T0 <- cor.test(Stress_Masterfile_T0[[analyte_name]], Stress_Masterfile_T0[[variable]], use = "complete.obs")
+  
+  # Store the results for T0 with outliers
+  correlation_results_T0 <- rbind(
+    correlation_results_T0,
+    data.frame(
+      Variable = variable,
+      Correlation = cor_test_T0$estimate,
+      P_value = cor_test_T0$p.value
+    )
+  )
+  
+  # Perform Pearson correlation for T1 with outliers
+  cor_test_T1 <- cor.test(Stress_Masterfile_T1[[analyte_name]], Stress_Masterfile_T1[[variable]], use = "complete.obs")
+  
+  # Store the results for T1 with outliers
+  correlation_results_T1 <- rbind(
+    correlation_results_T1,
+    data.frame(
+      Variable = variable,
+      Correlation = cor_test_T1$estimate,
+      P_value = cor_test_T1$p.value
+    )
+  )
+}
+
+# Ensure that correlation_results are not empty
+if (nrow(correlation_results_T0) == 0 || nrow(correlation_results_T1) == 0) {
+  stop("No valid correlations found. Please check the data processing steps.")
+}
+
+# Print correlation results with outliers
+print("Correlation Results for T0 (With Outliers):")
+print(correlation_results_T0)
+
+print("Correlation Results for T1 (With Outliers):")
+print(correlation_results_T1)
+
+# Scatter plot for T0 session with outliers - select one variable to plot against 'Neutrophil collagenase'
+selected_variable <- "GHQ_total"  # Replace with any other variable to analyze
+
+
+# Scatter plot for T0 with outliers
+scatter_plot_T0 <- ggplot(Stress_Masterfile_T0, aes(x = `Neutrophil collagenase`, y = .data[[selected_variable]])) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue", se = FALSE) +
+  labs(
+    title = paste("Scatter Plot of Neutrophil collagenase vs", selected_variable, "at T0 (With Outliers)"),
+    x = "Neutrophil collagenase",
+    y = selected_variable
+  ) +
+  theme_minimal()
+
+# Print the scatter plot for T0 with outliers
+print(scatter_plot_T0)
+
+# Scatter plot for T1 with outliers
+scatter_plot_T1 <- ggplot(Stress_Masterfile_T1, aes(x = `Neutrophil collagenase`, y = .data[[selected_variable]])) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue", se = FALSE) +
+  labs(
+    title = paste("Scatter Plot of Neutrophil collagenase vs", selected_variable, "at T1 (With Outliers)"),
+    x = "Neutrophil collagenase",
+    y = selected_variable
+  ) +
+  theme_minimal()
+
+# Print the scatter plot for T1 with outliers
+print(scatter_plot_T1)
+```
+
+```{r Pearson Correlation T0 & T1 Excluding Outliers, echo=TRUE, message=FALSE, warning=FALSE, results='show'}
+####Pearson Correlation at T0 and T1 without Outliers
+
+# Function to remove outliers more than 2 standard deviations away from the mean
+remove_outliers <- function(data, column_name) {
+  mean_val <- mean(data[[column_name]], na.rm = TRUE)
+  sd_val <- sd(data[[column_name]], na.rm = TRUE)
+  data %>% filter(abs(.data[[column_name]] - mean_val) <= 2 * sd_val)
+}
+
+# Prepare to store correlation results for T0 and T1 without outliers
+correlation_results_T0_filtered <- data.frame(
+  Variable = character(),
+  Correlation = numeric(),
+  P_value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+correlation_results_T1_filtered <- data.frame(
+  Variable = character(),
+  Correlation = numeric(),
+  P_value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Perform Pearson correlation for T0 without outliers
+analyte_name <- "Neutrophil collagenase"
+for (variable in variables_to_analyze) {
+  # Remove outliers for both 'Neutrophil collagenase' and the questionnaire variable at T0
+  Stress_Masterfile_T0_filtered <- Stress_Masterfile_T0 %>%
+    remove_outliers(analyte_name) %>%
+    remove_outliers(variable)
+  
+  # Perform Pearson correlation for T0 without outliers
+  cor_test_T0_filtered <- cor.test(Stress_Masterfile_T0_filtered[[analyte_name]], Stress_Masterfile_T0_filtered[[variable]], use = "complete.obs")
+  
+  # Store the results for T0 without outliers
+  correlation_results_T0_filtered <- rbind(
+    correlation_results_T0_filtered,
+    data.frame(
+      Variable = variable,
+      Correlation = cor_test_T0_filtered$estimate,
+      P_value = cor_test_T0_filtered$p.value
+    )
+  )
+  
+  # Remove outliers for both 'Neutrophil collagenase' and the questionnaire variable at T1
+  Stress_Masterfile_T1_filtered <- Stress_Masterfile_T1 %>%
+    remove_outliers(analyte_name) %>%
+    remove_outliers(variable)
+  
+  # Perform Pearson correlation for T1 without outliers
+  cor_test_T1_filtered <- cor.test(Stress_Masterfile_T1_filtered[[analyte_name]], Stress_Masterfile_T1_filtered[[variable]], use = "complete.obs")
+  
+  # Store the results for T1 without outliers
+  correlation_results_T1_filtered <- rbind(
+    correlation_results_T1_filtered,
+    data.frame(
+      Variable = variable,
+      Correlation = cor_test_T1_filtered$estimate,
+      P_value = cor_test_T1_filtered$p.value
+    )
+  )
+}
+
+# Ensure that correlation_results are not empty
+if (nrow(correlation_results_T0_filtered) == 0 || nrow(correlation_results_T1_filtered) == 0) {
+  stop("No valid correlations found after removing outliers. Please check the data processing steps.")
+}
+
+# Print correlation results without outliers
+print("Correlation Results for T0 (Without Outliers):")
+print(correlation_results_T0_filtered)
+
+print("Correlation Results for T1 (Without Outliers):")
+print(correlation_results_T1_filtered)
+
+# Scatter plot for T0 session without outliers - select one variable to plot against 'Neutrophil collagenase'
+selected_variable <- "GHQ_total"  # Replace with any other variable to analyze
+
+# Scatter plot for T0 without outliers
+scatter_plot_T0_filtered <- ggplot(Stress_Masterfile_T0_filtered, aes(x = `Neutrophil collagenase`, y = .data[[selected_variable]])) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue", se = FALSE) +
+  labs(
+    title = paste("Scatter Plot of Neutrophil collagenase vs", selected_variable, "at T0 (Without Outliers)"),
+    x = "Neutrophil collagenase",
+    y = selected_variable
+  ) +
+  theme_minimal()
+
+# Print the scatter plot for T0 without outliers
+print(scatter_plot_T0_filtered)
+
+# Scatter plot for T1 without outliers
+scatter_plot_T1_filtered <- ggplot(Stress_Masterfile_T1_filtered, aes(x = `Neutrophil collagenase`, y = .data[[selected_variable]])) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", color = "blue", se = FALSE) +
+  labs(
+    title = paste("Scatter Plot of Neutrophil collagenase vs", selected_variable, "at T1 (Without Outliers)"),
+    x = "Neutrophil collagenase",
+    y = selected_variable
+  ) +
+  theme_minimal()
+
+# Print the scatter plot for T1 without outliers
+print(scatter_plot_T1_filtered)
+```
+
+```{r Spearman Correlation T0 & T1, echo=TRUE, message=FALSE, warning=FALSE, results='show'}
+######Spearman Correlation
+
+# Prepare to store correlation results for T0 and T1 with outliers (Spearman)
+correlation_results_T0_spearman <- data.frame(
+  Variable = character(),
+  Correlation = numeric(),
+  P_value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+correlation_results_T1_spearman <- data.frame(
+  Variable = character(),
+  Correlation = numeric(),
+  P_value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Perform Spearman correlations for T0 and T1 with outliers
+analyte_name <- "Neutrophil collagenase"
+for (variable in variables_to_analyze) {
+  
+  # Spearman correlation for T0
+  cor_test_T0_spearman <- cor.test(Stress_Masterfile_T0[[analyte_name]], Stress_Masterfile_T0[[variable]], method = "spearman", use = "complete.obs")
+  correlation_results_T0_spearman <- rbind(
+    correlation_results_T0_spearman,
+    data.frame(
+      Variable = variable,
+      Correlation = cor_test_T0_spearman$estimate,
+      P_value = cor_test_T0_spearman$p.value
+    )
+  )
+  
+  # Spearman correlation for T1
+  cor_test_T1_spearman <- cor.test(Stress_Masterfile_T1[[analyte_name]], Stress_Masterfile_T1[[variable]], method = "spearman", use = "complete.obs")
+  correlation_results_T1_spearman <- rbind(
+    correlation_results_T1_spearman,
+    data.frame(
+      Variable = variable,
+      Correlation = cor_test_T1_spearman$estimate,
+      P_value = cor_test_T1_spearman$p.value
+    )
+  )
+}
+
+# Print Spearman correlation results with outliers
+print("Spearman Correlation Results for T0 (With Outliers):")
+print(correlation_results_T0_spearman)
+
+print("Spearman Correlation Results for T1 (With Outliers):")
+print(correlation_results_T1_spearman)
+
+```
+
+```{r Delta Analysis Organization, echo=TRUE, message=FALSE, warning=FALSE, results='show'}
+######Delta Analysis for Neutrophil Collagenase and Questionnaires
+
+# Arrange the data by participant ID (Bio_ID) and session (T0/T1)
+Stress_Masterfile <- Stress_Masterfile %>%
+  arrange(Bio_ID, session)
+
+# Calculate the delta values (T1 - T0) for each participant and each variable
+delta_data <- Stress_Masterfile %>%
+  group_by(Bio_ID) %>%
+  summarize(across(c(`Neutrophil collagenase`, all_of(variables_to_analyze)), 
+                   ~ .[session == "T1"] - .[session == "T0"],
+                   .names = "Delta_{col}")) %>%
+  ungroup()
+
+# Remove outliers that are more than 2x standard deviation away from the mean
+delta_data_filtered <- delta_data %>%
+  mutate(across(everything(), ~ ifelse(
+    abs(. - mean(., na.rm = TRUE)) > 2 * sd(., na.rm = TRUE), 
+    NA, .
+  )))
+
+```
+
+
+```{r Delta Analysis Pearson Correlation With Outliers, echo=TRUE, message=FALSE, warning=FALSE, results='show'}
+# Prepare to store correlation results
+correlation_results <- data.frame(
+  Variable = character(),
+  Correlation = numeric(),
+  P_value = numeric(),
+  Significance = character(),
+  stringsAsFactors = FALSE
+)
+
+# Perform Pearson correlation 
+analyte_name <- "Neutrophil collagenase"
+analyte_delta_column <- paste0("Delta_", analyte_name)
+
+for (variable in variables_to_analyze) {
+  variable_delta_column <- paste0("Delta_", variable)
+  
+  # Check if the analyte and variable columns have enough non-NA values for correlation
+  if (all(is.na(delta_data_filtered[[analyte_delta_column]])) || all(is.na(delta_data_filtered[[variable_delta_column]]))) next
+  
+  # Perform Pearson correlation on the delta values
+  cor_test <- cor.test(delta_data_filtered[[analyte_delta_column]], delta_data_filtered[[variable_delta_column]], use = "complete.obs")
+  cor_coefficient <- cor_test$estimate
+  p_value <- cor_test$p.value
+  significance <- ifelse(p_value < 0.05, "*", "")  # Mark significant correlations
+  
+  # Store the results
+  correlation_results <- rbind(
+    correlation_results,
+    data.frame(
+      Variable = variable,
+      Correlation = cor_coefficient,
+      P_value = p_value,
+      Significance = significance
+    )
+  )
+}
+
+# Print the correlation results
+print("Correlation Results for Delta Values (Neutrophil collagenase):")
+print(correlation_results)
+
+# Scatter plot for Delta values of Neutrophil collagenase and each questionnaire
+analyte_delta_name <- "Delta_Neutrophil collagenase"
+
+for (variable in variables_to_analyze) {
+  delta_variable_name <- paste0("Delta_", variable)
+  
+  # Ensure both columns are numeric and have non-NA values
+  if (is.numeric(delta_data[[analyte_delta_name]]) && is.numeric(delta_data[[delta_variable_name]]) &&
+      !all(is.na(delta_data[[analyte_delta_name]])) && !all(is.na(delta_data[[delta_variable_name]]))) {
+    
+    # Scatter plot for delta values
+    scatter_plot <- ggplot(delta_data, aes(x = .data[[analyte_delta_name]], y = .data[[delta_variable_name]])) +
+      geom_point(alpha = 0.6) +
+      geom_smooth(method = "lm", color = "blue", se = FALSE) +
+      labs(
+        title = paste("Scatter Plot of Delta Neutrophil Collagenase vs Delta", variable),
+        x = "Delta Neutrophil Collagenase",
+        y = paste("Delta", variable)
+      ) +
+      theme_minimal()
+    
+    # Print the scatter plot
+    print(scatter_plot)
+  } else {
+    message(paste("Skipping variable", variable, "due to non-numeric or missing data."))
+  }
+}
+
+```
+
+```{r Delta Analysis Pearson Correlation Without Outliers, echo=TRUE, message=FALSE, warning=FALSE, results='show'}
+
+# Remove outliers that are more than 2x standard deviation away from the mean in delta_data
+delta_data_filtered <- delta_data %>%
+  mutate(across(everything(), ~ ifelse(
+    abs(. - mean(., na.rm = TRUE)) > 2 * sd(., na.rm = TRUE), 
+    NA, .
+  )))
+
+# Prepare to store correlation results excluding outliers
+correlation_results_filtered <- data.frame(
+  Variable = character(),
+  Correlation = numeric(),
+  P_value = numeric(),
+  Significance = character(),
+  stringsAsFactors = FALSE
+)
+
+# Perform Pearson correlation for `Neutrophil collagenase` excluding outliers
+for (variable in variables_to_analyze) {
+  delta_variable_name <- paste0("Delta_", variable)
+  
+  # Ensure both columns are numeric and have non-NA values after removing outliers
+  if (is.numeric(delta_data_filtered[[analyte_delta_name]]) && is.numeric(delta_data_filtered[[delta_variable_name]]) &&
+      !all(is.na(delta_data_filtered[[analyte_delta_name]])) && !all(is.na(delta_data_filtered[[delta_variable_name]]))) {
+    
+    # Perform Pearson correlation on the delta values excluding outliers
+    cor_test_filtered <- cor.test(delta_data_filtered[[analyte_delta_name]], delta_data_filtered[[delta_variable_name]], use = "complete.obs")
+    cor_coefficient_filtered <- cor_test_filtered$estimate
+    p_value_filtered <- cor_test_filtered$p.value
+    significance_filtered <- ifelse(p_value_filtered < 0.05, "*", "")  # Mark significant correlations
+    
+    # Store the results excluding outliers
+    correlation_results_filtered <- rbind(
+      correlation_results_filtered,
+      data.frame(
+        Variable = variable,
+        Correlation = cor_coefficient_filtered,
+        P_value = p_value_filtered,
+        Significance = significance_filtered
+      )
+    )
+  } else {
+    message(paste("Skipping variable", variable, "due to non-numeric or missing data after removing outliers."))
+  }
+}
+
+# Print the correlation results excluding outliers
+print("Correlation Results for Delta Values (Neutrophil Collagenase, Excluding Outliers):")
+print(correlation_results_filtered)
+
+# Scatter plot for Delta values of Neutrophil collagenase and each questionnaire excluding outliers
+for (variable in variables_to_analyze) {
+  delta_variable_name <- paste0("Delta_", variable)
+  
+  # Ensure both columns are numeric and have non-NA values after removing outliers
+  if (is.numeric(delta_data_filtered[[analyte_delta_name]]) && is.numeric(delta_data_filtered[[delta_variable_name]]) &&
+      !all(is.na(delta_data_filtered[[analyte_delta_name]])) && !all(is.na(delta_data_filtered[[delta_variable_name]]))) {
+    
+    # Scatter plot for delta values excluding outliers
+    scatter_plot_filtered <- ggplot(delta_data_filtered, aes(x = .data[[analyte_delta_name]], y = .data[[delta_variable_name]])) +
+      geom_point(alpha = 0.6) +
+      geom_smooth(method = "lm", color = "blue", se = FALSE) +
+      labs(
+        title = paste("Scatter Plot of Delta Neutrophil Collagenase vs Delta", variable, "(Excluding Outliers)"),
+        x = "Delta Neutrophil Collagenase",
+        y = paste("Delta", variable)
+      ) +
+      theme_minimal()
+    
+    # Print the scatter plot excluding outliers
+    print(scatter_plot_filtered)
+  }
+}
+
+```
+
+
+```{r Delta Analysis Spearman Correlation, echo=TRUE, message=FALSE, warning=FALSE, results='show'}
+####Spearmen Correlation for Delta Values
+
+# Prepare to store Spearman correlation results for delta values
+correlation_results_spearman <- data.frame(
+  Variable = character(),
+  Correlation = numeric(),
+  P_value = numeric(),
+  Significance = character(),
+  stringsAsFactors = FALSE
+)
+
+# Perform Spearman correlation on the delta values
+analyte_name <- "Neutrophil collagenase"
+analyte_delta_column <- paste0("Delta_", analyte_name)
+
+for (variable in variables_to_analyze) {
+  variable_delta_column <- paste0("Delta_", variable)
+  
+  # Check if the analyte and variable columns have enough non-NA values for correlation
+  if (all(is.na(delta_data[[analyte_delta_column]])) || all(is.na(delta_data[[variable_delta_column]]))) next
+  
+  # Perform Spearman correlation on the delta values
+  cor_test_spearman <- cor.test(delta_data[[analyte_delta_column]], delta_data[[variable_delta_column]], method = "spearman", use = "complete.obs")
+  cor_coefficient_spearman <- cor_test_spearman$estimate
+  p_value_spearman <- cor_test_spearman$p.value
+  significance_spearman <- ifelse(p_value_spearman < 0.05, "*", "")  # Mark significant correlations
+  
+  # Store the results
+  correlation_results_spearman <- rbind(
+    correlation_results_spearman,
+    data.frame(
+      Variable = variable,
+      Correlation = cor_coefficient_spearman,
+      P_value = p_value_spearman,
+      Significance = significance_spearman
+    )
+  )
+}
+
+# Print the Spearman correlation results
+print("Spearman Correlation Results for Delta Values (Neutrophil Collagenase):")
+print(correlation_results_spearman)
+```
+
+```{r Regression Analysis Data Organization, echo=TRUE, message=FALSE, warning=FALSE, results='show'}
+####Regression Analysis with Outliers
+
+# Filter data for T0 and T1 sessions separately
+Stress_Masterfile_T0 <- Stress_Masterfile %>% filter(session == "T0")
+Stress_Masterfile_T1 <- Stress_Masterfile %>% filter(session == "T1")
+
+# Ensure necessary covariates are present and numeric
+Stress_Masterfile_T0 <- Stress_Masterfile_T0 %>%
+  mutate(
+    sex_numeric = ifelse(sex_T0 == "male", 0, ifelse(sex_T0 == "female", 1, NA)),
+    smoke_numeric = ifelse(smoke == "yes", 1, ifelse(smoke == "no", 0, NA)),
+    meds_numeric = ifelse(meds == "yes", 1, ifelse(meds == "no", 0, NA)),
+    BMI = Weight_T0 / (Height_T0 / 100)^2
+  )
+
+Stress_Masterfile_T1 <- Stress_Masterfile_T1 %>%
+  mutate(
+    sex_numeric = ifelse(sex_T0 == "male", 0, ifelse(sex_T0 == "female", 1, NA)),
+    smoke_numeric = ifelse(smoke == "yes", 1, ifelse(smoke == "no", 0, NA)),
+    meds_numeric = ifelse(meds == "yes", 1, ifelse(meds == "no", 0, NA)),
+    BMI = Weight_T0 / (Height_T0 / 100)^2
+  )
+
+# Define the covariates
+covariates <- c("age_T0", "sex_numeric", "BMI", "smoke_numeric", "meds_numeric")
+```
+
+```{r T0 and T1 Regression Analysis With Outliers, message=FALSE, warning=FALSE, include=FALSE, results='show'}
+# Function to perform regression analysis for each variable against 'Neutrophil collagenase'
+perform_regression <- function(data, timepoint) {
+  regression_results <- data.frame(
+    Variable = character(),
+    Estimate = numeric(),
+    Std_Error = numeric(),
+    t_value = numeric(),
+    P_value = numeric(),
+    stringsAsFactors = FALSE
+  )
+  
+  for (variable in variables_to_analyze) {
+    formula <- as.formula(paste("`Neutrophil collagenase` ~", variable, "+", paste(covariates, collapse = " + ")))
+    model <- lm(formula, data = data)
+    
+    # Extract the regression results for the variable of interest
+    summary_model <- summary(model)
+    variable_results <- summary_model$coefficients[variable, ]
+    
+    # Store the results
+    regression_results <- rbind(
+      regression_results,
+      data.frame(
+        Variable = variable,
+        Estimate = variable_results["Estimate"],
+        Std_Error = variable_results["Std. Error"],
+        t_value = variable_results["t value"],
+        P_value = variable_results["Pr(>|t|)"]
+      )
+    )
+  }
+  
+  # Print regression results
+  cat(paste("Regression Results for Neutrophil Collagenase at", timepoint, ":\n"))
+  print(regression_results)
+}
+
+# Perform regression analysis for T0 and T1 separately
+perform_regression(Stress_Masterfile_T0, "T0")
+perform_regression(Stress_Masterfile_T1, "T1")
+
+# Combine T0 and T1 regression results into one data frame
+regression_results_combined <- function(results_T0, results_T1) {
+  results_T0$Timepoint <- "T0"
+  results_T1$Timepoint <- "T1"
+  combined_results <- rbind(results_T0, results_T1)
+  return(combined_results)
+}
+
+# Example regression results 
+regression_results_T0 <- perform_regression(Stress_Masterfile_T0, "T0")
+regression_results_T1 <- perform_regression(Stress_Masterfile_T1, "T1")
+
+# Combine the results
+combined_regression_results <- regression_results_combined(regression_results_T0, regression_results_T1)
+
+# Plot the Effect Size (Forest Plot)
+effect_size_plot <- ggplot(combined_regression_results, aes(x = Estimate, y = Variable, color = Timepoint)) +
+  geom_point(size = 3) +
+  geom_errorbarh(aes(xmin = Estimate - 1.96 * Std_Error, xmax = Estimate + 1.96 * Std_Error), height = 0.2) +
+  facet_wrap(~ Timepoint) +
+  labs(title = "Effect Size Plot (Regression Coefficients) for Neutrophil Collagenase",
+       x = "Regression Coefficient (Estimate)",
+       y = "Questionnaire Variable") +
+  theme_minimal()
+
+# Print the plot
+print(effect_size_plot)
+```
+
+```{r T0 & T1 Regression Analysis Without Outliers, echo=TRUE, message=FALSE, warning=FALSE, results='show'}
+
+# Remove outliers that are more than 2x standard deviation away from the mean
+remove_outliers <- function(data, columns) {
+  data_filtered <- data
+  for (col in columns) {
+    mean_val <- mean(data[[col]], na.rm = TRUE)
+    sd_val <- sd(data[[col]], na.rm = TRUE)
+    data_filtered <- data_filtered %>%
+      filter(abs(.data[[col]] - mean_val) <= 2 * sd_val)
+  }
+  return(data_filtered)
+}
+
+# Filter data for T0 and T1 sessions separately
+Stress_Masterfile_T0 <- Stress_Masterfile %>% filter(session == "T0")
+Stress_Masterfile_T1 <- Stress_Masterfile %>% filter(session == "T1")
+
+# Ensure necessary covariates are present and numeric
+Stress_Masterfile_T0 <- Stress_Masterfile_T0 %>%
+  mutate(
+    sex_numeric = ifelse(sex_T0 == "male", 0, ifelse(sex_T0 == "female", 1, NA)),
+    smoke_numeric = ifelse(smoke == "yes", 1, ifelse(smoke == "no", 0, NA)),
+    meds_numeric = ifelse(meds == "yes", 1, ifelse(meds == "no", 0, NA)),
+    BMI = Weight_T0 / (Height_T0 / 100)^2
+  )
+
+Stress_Masterfile_T1 <- Stress_Masterfile_T1 %>%
+  mutate(
+    sex_numeric = ifelse(sex_T0 == "male", 0, ifelse(sex_T0 == "female", 1, NA)),
+    smoke_numeric = ifelse(smoke == "yes", 1, ifelse(smoke == "no", 0, NA)),
+    meds_numeric = ifelse(meds == "yes", 1, ifelse(meds == "no", 0, NA)),
+    BMI = Weight_T0 / (Height_T0 / 100)^2
+  )
+
+# Define the covariates
+covariates <- c("age_T0", "sex_numeric", "BMI", "smoke_numeric", "meds_numeric")
+
+# Remove outliers for regression analysis at T0 and T1
+columns_to_filter <- c("Neutrophil collagenase", variables_to_analyze, covariates)
+
+Stress_Masterfile_T0_filtered <- remove_outliers(Stress_Masterfile_T0, columns_to_filter)
+Stress_Masterfile_T1_filtered <- remove_outliers(Stress_Masterfile_T1, columns_to_filter)
+
+# Function to perform regression analysis for each variable against 'Neutrophil collagenase' without outliers
+perform_regression <- function(data, timepoint) {
+  regression_results <- data.frame(
+    Variable = character(),
+    Estimate = numeric(),
+    Std_Error = numeric(),
+    t_value = numeric(),
+    P_value = numeric(),
+    stringsAsFactors = FALSE
+  )
+  
+  for (variable in variables_to_analyze) {
+    formula <- as.formula(paste("`Neutrophil collagenase` ~", variable, "+", paste(covariates, collapse = " + ")))
+    model <- lm(formula, data = data)
+    
+    # Extract the regression results for the variable of interest
+    summary_model <- summary(model)
+    variable_results <- summary_model$coefficients[variable, ]
+    
+    # Store the results
+    regression_results <- rbind(
+      regression_results,
+      data.frame(
+        Variable = variable,
+        Estimate = variable_results["Estimate"],
+        Std_Error = variable_results["Std. Error"],
+        t_value = variable_results["t value"],
+        P_value = variable_results["Pr(>|t|)"]
+      )
+    )
+  }
+  
+  # Print regression results
+  cat(paste("Regression Results for Neutrophil Collagenase at", timepoint, ":\n"))
+  print(regression_results)
+  
+  return(regression_results)
+}
+
+# Perform regression analysis for T0 and T1 separately without outliers
+regression_results_T0 <- perform_regression(Stress_Masterfile_T0_filtered, "T0")
+regression_results_T1 <- perform_regression(Stress_Masterfile_T1_filtered, "T1")
+
+# Combine T0 and T1 regression results into one data frame
+regression_results_combined <- function(results_T0, results_T1) {
+  results_T0$Timepoint <- "T0"
+  results_T1$Timepoint <- "T1"
+  combined_results <- rbind(results_T0, results_T1)
+  return(combined_results)
+}
+
+# Combine the results
+combined_regression_results <- regression_results_combined(regression_results_T0, regression_results_T1)
+
+# Plot the Effect Size (Forest Plot) Without Outliers
+effect_size_plot <- ggplot(combined_regression_results, aes(x = Estimate, y = Variable, color = Timepoint)) +
+  geom_point(size = 3) +
+  geom_errorbarh(aes(xmin = Estimate - 1.96 * Std_Error, xmax = Estimate + 1.96 * Std_Error), height = 0.2) +
+  facet_wrap(~ Timepoint) +
+  labs(title = "Effect Size Plot (Regression Coefficients) for Neutrophil Collagenase (Without Outliers)",
+       x = "Regression Coefficient (Estimate)",
+       y = "Questionnaire Variable") +
+  theme_minimal()
+
+# Print the plot
+print(effect_size_plot)
+```
+
+```{r Delta Regression Analysis With Outliers, echo=TRUE, message=FALSE, warning=FALSE, results='show'}
+
+# Ensure necessary covariates are present and numeric in both T0 and T1
+Stress_Masterfile <- Stress_Masterfile %>%
+  mutate(
+    sex_numeric = ifelse(sex_T0 == "male", 0, ifelse(sex_T0 == "female", 1, NA)),
+    smoke_numeric = ifelse(smoke == "yes", 1, ifelse(smoke == "no", 0, NA)),
+    meds_numeric = ifelse(meds == "yes", 1, ifelse(meds == "no", 0, NA)),
+    BMI = Weight_T0 / (Height_T0 / 100)^2
+  )
+
+# Calculate the delta values (T1 - T0) for each participant and each variable
+delta_data <- Stress_Masterfile %>%
+  arrange(Bio_ID, session) %>%
+  group_by(Bio_ID) %>%
+  summarize(across(c(`Neutrophil collagenase`, all_of(variables_to_analyze), covariates), 
+                   ~ .[session == "T1"] - .[session == "T0"],
+                   .names = "Delta_{col}")) %>%
+  ungroup()
+
+# Function to perform regression analysis on delta values against 'Delta Neutrophil collagenase' with outliers
+perform_regression_delta_with_outliers <- function(data) {
+  regression_results <- data.frame(
+    Variable = character(),
+    Estimate = numeric(),
+    Std_Error = numeric(),
+    t_value = numeric(),
+    P_value = numeric(),
+    stringsAsFactors = FALSE
+  )
+  
+  for (variable in variables_to_analyze) {
+    delta_variable <- paste0("Delta_", variable)
+    formula <- as.formula(paste("`Delta_Neutrophil collagenase` ~", delta_variable, "+", paste(paste0("Delta_", covariates), collapse = " + ")))
+    model <- lm(formula, data = data)
+    
+    # Extract the regression results for the variable of interest
+    summary_model <- summary(model)
+    variable_results <- summary_model$coefficients[delta_variable, ]
+    
+    # Store the results
+    regression_results <- rbind(
+      regression_results,
+      data.frame(
+        Variable = variable,
+        Estimate = variable_results["Estimate"],
+        Std_Error = variable_results["Std. Error"],
+        t_value = variable_results["t value"],
+        P_value = variable_results["Pr(>|t|)"]
+      )
+    )
+    
+    # Scatter plot for the regression relationship
+    scatter_plot <- ggplot(data, aes_string(x = delta_variable, y = "`Delta_Neutrophil collagenase`")) +
+      geom_point(alpha = 0.6) +
+      geom_smooth(method = "lm", color = "blue", se = TRUE) +
+      labs(
+        title = paste("Scatter Plot of Delta Neutrophil Collagenase vs", variable, "(With Outliers)"),
+        x = paste("Delta", variable),
+        y = "Delta Neutrophil Collagenase"
+      ) +
+      theme_minimal()
+    
+    # Print the scatter plot
+    print(scatter_plot)
+  }
+  
+  # Print regression results
+  cat("Regression Results for Delta Neutrophil Collagenase (With Outliers):\n")
+  print(regression_results)
+  
+  return(regression_results)
+}
+
+# Perform regression analysis on delta values with outliers
+regression_results_delta_with_outliers <- perform_regression_delta_with_outliers(delta_data)
+
+```
+
+```{r Delta Regression Analysis Without Outliers, message=FALSE, warning=FALSE, include=FALSE, results='show'}
+
+# Remove outliers for delta values that are more than 2x standard deviation away from the mean
+delta_columns <- c("Delta_Neutrophil collagenase", paste0("Delta_", variables_to_analyze), paste0("Delta_", covariates))
+delta_data_filtered <- remove_outliers(delta_data, delta_columns)
+
+# Function to perform regression analysis on delta values against 'Delta Neutrophil collagenase' without outliers
+perform_regression_delta <- function(data) {
+  regression_results <- data.frame(
+    Variable = character(),
+    Estimate = numeric(),
+    Std_Error = numeric(),
+    t_value = numeric(),
+    P_value = numeric(),
+    stringsAsFactors = FALSE
+  )
+  
+  for (variable in variables_to_analyze) {
+    delta_variable <- paste0("Delta_", variable)
+    formula <- as.formula(paste("`Delta_Neutrophil collagenase` ~", delta_variable, "+", paste(paste0("Delta_", covariates), collapse = " + ")))
+    model <- lm(formula, data = data)
+    
+    # Extract the regression results for the variable of interest
+    summary_model <- summary(model)
+    variable_results <- summary_model$coefficients[delta_variable, ]
+    
+    # Store the results
+    regression_results <- rbind(
+      regression_results,
+      data.frame(
+        Variable = variable,
+        Estimate = variable_results["Estimate"],
+        Std_Error = variable_results["Std. Error"],
+        t_value = variable_results["t value"],
+        P_value = variable_results["Pr(>|t|)"]
+      )
+    )
+    
+    # Scatter plot for the regression relationship
+    scatter_plot <- ggplot(data, aes_string(x = delta_variable, y = "`Delta_Neutrophil collagenase`")) +
+      geom_point(alpha = 0.6) +
+      geom_smooth(method = "lm", color = "blue", se = TRUE) +
+      labs(
+        title = paste("Scatter Plot of Delta Neutrophil Collagenase vs", variable, "(Without Outliers)"),
+        x = paste("Delta", variable),
+        y = "Delta Neutrophil Collagenase"
+      ) +
+      theme_minimal()
+    
+    # Print the scatter plot
+    print(scatter_plot)
+  }
+  
+  # Print regression results
+  cat("Regression Results for Delta Neutrophil Collagenase (Without Outliers):\n")
+  print(regression_results)
+  
+  return(regression_results)
+}
+
+# Perform regression analysis on delta values without outliers
+regression_results_delta_filtered <- perform_regression_delta(delta_data_filtered)
+```
